@@ -162,16 +162,21 @@ namespace Panda3DEggParser
         public char Type;
     }
 
-    public abstract class BaseAnimation : EggGroup { }
+    public abstract class BaseAnimation : EggGroup
+    {
+        public string AnimationType = "S$Anim";
+    }
 
+    // Xfm$Anim_S$
     public class XfmAnimationS : BaseAnimation
     {
         public int FPS = 24;
 
-        public SAnimation[] Animations;
+        public List<SAnimation> Animations = new();
     }
 
-    public class SAnimation
+    // S$Anim
+    public class SAnimation : BaseAnimation
     {
         // xyz = translation (X Y Z)
         // ijk = scale (???)
@@ -179,9 +184,10 @@ namespace Panda3DEggParser
         public char Variable;
 
         // Each value per frame
-        public float[] Values;
+        public List<float> Values = new();
     }
 
+    // Xfm$Anim
     public class XfmAnimation : BaseAnimation
     {
         public int FPS = 24;
@@ -191,9 +197,11 @@ namespace Panda3DEggParser
         // h = heading
         // r = roll
         // t = translation
-        public char[] Order;
-        public char[] Contents;
+        public char[] Order = new char[] { 's', 'p', 'r', 'h', 't' };
+        public char[] Contents = new char[]
+            { 'i', 'j', 'k', 'p', 'r', 'h', 'x', 'y', 'z' };
 
+        // Each row is a frame
         public float[,] Animations;
 
         public XfmAnimation() { }

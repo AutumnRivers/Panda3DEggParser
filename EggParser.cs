@@ -156,6 +156,57 @@
                         vr.Pool = vref.Content[0].Values[0];
                     }
                     return polygon;
+                case "Table":
+                    var table = new Table()
+                    {
+                        Name = entry.Name
+                    };
+                    var bundles = entry.Content.Where(e => e.Type == "Bundle");
+                    foreach(var bundle in bundles)
+                    {
+                        table.Bundles.Add((Bundle)ParseEntry(bundle));
+                    }
+                    var tbls = entry.Content.Where(e => e.Type == "Table");
+                    foreach(var t in tbls)
+                    {
+                        table.Tables.Add((Table)ParseEntry(t));
+                    }
+                    var anims = entry.Content.Where(e => e.Type == "Xfm$Anim_S$" ||
+                    e.Type == "S$Anim" || e.Type == "Xfm$Anim");
+                    foreach(var a in anims)
+                    {
+                        table.Animations.Add((BaseAnimation)ParseEntry(a));
+                    }
+                    return table;
+                case "Bundle":
+                    var bndl = new Bundle();
+                    var tables = entry.Content.Where(e => e.Type == "Table");
+                    foreach(var t in tables)
+                    {
+                        bndl.Tables.Add((Table)ParseEntry(t));
+                    }
+                    return bndl;
+                case "S$Anim":
+                    var sanim = new SAnimation();
+                    sanim.Variable = entry.Name[0];
+                    foreach(var val in entry.Content.First(e => e.Type == "V").Values)
+                    {
+                        sanim.Values.Add(float.Parse(val));
+                    }
+                    return sanim;
+                case "Xfm$Anim_S$":
+                    var xfmanims = new XfmAnimationS();
+                    var fps = entry.Content.FirstOrDefault(e => e.Type == "Scalar" && e.Name == "fps");
+                    if(fps != default) { xfmanims.FPS = int.Parse(fps.Values[0]); }
+                    foreach (var sanimation in entry.Content.Where(e => e.Type == "S$Anim"))
+                    {
+                        xfmanims.Animations.Add((SAnimation)ParseEntry(sanimation));
+                    }
+                    return xfmanims;
+                case "Xfm$Anim":
+                    var xfmanim = new XfmAnimation();
+                    Console.WriteLine("WARN: Xfm$Anim isn't currently supported. Class will be empty");
+                    return xfmanim;
                 default:
                     var g = new GenericEggGroup() {
                         Name = entry.Name
