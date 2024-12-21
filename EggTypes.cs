@@ -2,6 +2,11 @@
 
 namespace Panda3DEggParser
 {
+    /// <summary>
+    /// A class representing all the info held by an EGG file.
+    /// </summary>
+    /// <value>Property <c>Data</c> holds all of the egg file's data.</value>
+    /// <seealso cref="EggGroup"/>
     public class Panda3DEgg
     {
         public string CoordinateSystem = "Z-Up";
@@ -10,6 +15,9 @@ namespace Panda3DEggParser
         public List<EggGroup> Data = new();
     }
 
+    /// <summary>
+    /// A generic abstract class for basic group data.
+    /// </summary>
     public abstract class EggGroup
     {
         public string Value = string.Empty;
@@ -18,9 +26,18 @@ namespace Panda3DEggParser
 
     public class GenericEggGroup : EggGroup { }
 
+    /// <summary>
+    /// A group that holds data about texture references.
+    /// </summary>
     public class TextureGroup : EggGroup
     {
+        /// <summary>
+        /// A string to the path of the texture file, relative to Panda3D installation.
+        /// </summary>
         public string Filepath;
+        /// <summary>
+        /// A collection of scalars, affecting things such as color space.
+        /// </summary>
         public List<EggGroup> Scalars = new();
 
         public TextureGroup(string filepath)
@@ -30,11 +47,17 @@ namespace Panda3DEggParser
     }
 
     #region VERTEX GROUPS
+    /// <summary>
+    /// Holds many different <c><seealso cref="Vertex"/></c>es
+    /// </summary>
     public class VertexPool : EggGroup
     {
         public List<Vertex> References = new();
     }
 
+    /// <summary>
+    /// A class representing a <c>vertex</c> in an egg file.
+    /// </summary>
     public class Vertex : EggGroup
     {
         public int Index;
@@ -119,6 +142,7 @@ namespace Panda3DEggParser
         public string Dart = "structured";
         public string ObjectType = string.Empty;
         public List<EggGroup> Members = new();
+        public bool IsCollision = false;
     }
 
     public class Polygon : EggGroup
@@ -210,6 +234,33 @@ namespace Panda3DEggParser
         {
             Order = order.ToCharArray();
             Contents = order.ToCharArray();
+        }
+    }
+
+    public class Joint : EggGroup
+    {
+        public List<Joint> Joints = new();
+        public Transform Transform;
+        public Transform DefaultPose;
+    }
+
+    public class Transform : EggGroup
+    {
+        public float[,] Matrix4 = new float[4,4];
+
+        public Transform(List<string> matricies)
+        {
+            if (matricies.Count != 16) return;
+
+            int index = 0;
+            for(int i = 0; i < 4; i++)
+            {
+                for(int j = 0; j < 4; j++)
+                {
+                    Matrix4[i, j] = float.Parse(matricies[index]);
+                    index++;
+                }
+            }
         }
     }
 }

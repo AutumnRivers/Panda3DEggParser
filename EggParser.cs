@@ -207,6 +207,33 @@
                     var xfmanim = new XfmAnimation();
                     Console.WriteLine("WARN: Xfm$Anim isn't currently supported. Class will be empty");
                     return xfmanim;
+                case "Joint":
+                    var joint = new Joint();
+                    joint.Name = entry.Name;
+                    var joints = entry.Content.Where(e => e.Type == "Joint");
+                    foreach(var j in joints)
+                    {
+                        joint.Joints.Add((Joint)ParseEntry(j));
+                    }
+                    var transform = entry.Content.FirstOrDefault(e => e.Type == "Transform");
+                    if(transform != default)
+                    {
+                        var m4 = transform.Content.FirstOrDefault(e => e.Type == "Matrix4");
+                        if(m4 != default)
+                        {
+                            joint.Transform = new Transform(m4.Values);
+                        }
+                    }
+                    var defaultPose = entry.Content.FirstOrDefault(e => e.Type == "DefaultPose");
+                    if(defaultPose != default)
+                    {
+                        var m4 = defaultPose.Content.FirstOrDefault(e => e.Type == "Matrix4");
+                        if(m4 != default)
+                        {
+                            joint.DefaultPose = new Transform(m4.Values);
+                        }
+                    }
+                    return joint;
                 default:
                     var g = new GenericEggGroup() {
                         Name = entry.Name
@@ -414,6 +441,11 @@
                     _reader.Read();
                 }
                 else if(c == '>') { continue; }
+                else if(c == '/')
+                {
+                    // Probably a comment. Skip to next line
+                    MovePastComment();
+                }
                 else
                 {
                     throw new FormatException("Egg is malformed -- unrecognized token " + c);
@@ -432,6 +464,18 @@
             {
                 _reader.Read();
                 MovePastWhitespaceAndNewlines();
+            }
+
+            return;
+        }
+
+        private void MovePastComment()
+        {
+            if((char)_reader.Peek() != '\n' &&
+                (char)_reader.Peek() != '\r')
+            {
+                _reader.Read();
+                MovePastComment();
             }
 
             return;
