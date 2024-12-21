@@ -17,17 +17,41 @@
             Console.WriteLine("PARSER: Data tokenized!");
         }
 
+        public EggParser(string filepathOrEggData, bool isFile)
+        {
+            if(!isFile)
+            {
+                _eggTokens = new EggEntryTokenizer().Scan(filepathOrEggData).GetEnumerator();
+                return;
+            }
+
+            FileStream eggFileStream = File.OpenRead(filepathOrEggData);
+            StreamReader eggStream = new StreamReader(eggFileStream);
+            _eggTokens = new EggEntryTokenizer().Scan(eggStream.ReadToEnd()).GetEnumerator();
+            eggStream.Close();
+        }
+
+        public EggParser(FileStream eggFile)
+        {
+            StreamReader eggStream = new StreamReader(eggFile);
+            _eggTokens = new EggEntryTokenizer().Scan(eggStream.ReadToEnd()).GetEnumerator();
+            eggStream.Close();
+        }
+
         // todo: RETURN DATA
-        public List<EggEntry> Parse()
+        public Panda3DEgg Parse()
         {
             List<EggEntry> entries = new();
+            Panda3DEgg egg = new Panda3DEgg();
 
             Console.WriteLine("PARSER: Starting to parse data");
             _eggTokens.Reset();
             while(_eggTokens.MoveNext())
             {
                 Console.WriteLine("PARSER: Parsing data...");
-                entries.Add(ParseCurrentEntry());
+                var entry = ParseCurrentEntry();
+                entries.Add(entry);
+                egg.Data.Add(ParseEntry(entry));
             }
 
             EggEntry ParseCurrentEntry()
@@ -65,7 +89,80 @@
                 return currentEntry;
             }
 
-            return entries;
+            return egg;
+        }
+
+        public EggGroup ParseEntry(EggEntry entry)
+        {
+            switch(entry.Type)
+            {
+                case "Group":
+                    var group = new EntityGroup();
+                    var dart = entry.Content.FirstOrDefault(e => e.Type == "Dart");
+                    if(dart != default) { group.Dart = dart.Values[0]; }
+                    var otype = entry.Content.FirstOrDefault(e => e.Type == "ObjectType");
+                    if(otype != default) { group.ObjectType = otype.Values[0]; }
+                    foreach(var member in entry.Content.Where(e => e.Type != "Dart" && e.Type != "ObjectType"))
+                    {
+                        group.Members.Add(ParseEntry(member));
+                    }
+                    return group;
+                case "Texture":
+                    var tex = new TextureGroup(entry.Filepath);
+                    tex.Name = entry.Name;
+                    List<EggGroup> scalars = new();
+                    foreach(var c in entry.Content) { scalars.Add(ParseEntry(c)); }
+                    tex.Scalars = scalars;
+                    return tex;
+                case "VertexPool":
+                    var pool = new VertexPool();
+                    foreach (var v in entry.Content.Where(e => e.Type == "Vertex"))
+                    {
+                        pool.References.Add((Vertex)ParseEntry(v));
+                    }
+                    return pool;
+                case "Vertex":
+                    var vertex = new Vertex(entry.Name, entry.Values[0],
+                        entry.Values[1], entry.Values[2]);
+                    var rgba = entry.Content.FirstOrDefault(e => e.Type == "RGBA");
+                    if (rgba != default)
+                    {
+                        vertex.RGBA = new VertexRGBA(rgba.Values[0], rgba.Values[1],
+                            rgba.Values[2], rgba.Values[3]);
+                    }
+                    var uv = entry.Content.FirstOrDefault(e => e.Type == "UV");
+                    if(uv != default)
+                    {
+                        vertex.UV = new VertexUV(uv.Values[0], uv.Values[1]);
+                    }
+                    return vertex;
+                case "Polygon":
+                    var polygon = new Polygon();
+                    var tref = entry.Content.FirstOrDefault(e => e.Type == "TRef");
+                    if(tref != default)
+                    {
+                        polygon.TRef = tref.Values[0];
+                    }
+                    var vref = entry.Content.FirstOrDefault(e => e.Type == "VertexRef");
+                    if(vref != default)
+                    {
+                        var vr = new VertexReference();
+                        vr.Indices = new int[vref.Values.Count];
+                        for(int i = 0; i < vref.Values.Count; i++)
+                        {
+                            int indice = int.Parse(vref.Values[i]);
+                            vr.Indices[i] = indice;
+                        }
+                        vr.Pool = vref.Content[0].Values[0];
+                    }
+                    return polygon;
+                default:
+                    var g = new GenericEggGroup() {
+                        Name = entry.Name
+                    };
+                    if(entry.Values.Count > 0) { g.Value = entry.Values[0]; }
+                    return g;
+            }
         }
     }
 
@@ -116,7 +213,6 @@
 
         public EntryContentToken(string unprocessedValue)
         {
-            Console.WriteLine(unprocessedValue);
             StringReader reader = new(unprocessedValue);
             List<string> values = new();
             string currentValue = string.Empty;
@@ -234,8 +330,27 @@
                     Console.WriteLine($"TOKENIZER: {entryName}");
                 } else if(c == '{') // entry content
                 {
+                    _reader.Read();
+                    MovePastWhitespaceAndNewlines();
                     Console.WriteLine("TOKENIZER: Tokenizing entry content");
+                    string filepath = string.Empty;
+                    if((char)_reader.Peek() == '"')
+                    {
+                        if(filepath == string.Empty)
+                        {
+                            _reader.Read();
+                            Console.WriteLine("TOKENIZER: Tokenizing filepath");
+                            while ((char)_reader.Peek() != '"')
+                            {
+                                if ((char)_reader.Peek() == '"') break;
+                                filepath += (char)_reader.Read();
+                            }
+                            tokens.Add(new FilepathToken(filepath));
+                            Console.WriteLine("FILEPATH: " + filepath);
+                        }
+                    }
                     string toBeProcessed = string.Empty;
+                    if((char)_reader.Peek() == '"') { _reader.Read(); }
                     while((char)_reader.Peek() != '<' && (char)_reader.Peek() != '}')
                     {
                         toBeProcessed += (char)_reader.Read();
@@ -247,17 +362,7 @@
                     tokens.Add(new ExitEntryToken());
                     _reader.Read();
                 }
-                else if(c == '"')
-                {
-                    Console.WriteLine("TOKENIZER: Tokenizing filepath");
-                    string filepath = string.Empty;
-                    _reader.Read();
-                    while((char)_reader.Read() != '"')
-                    {
-                        filepath += (char)_reader.Peek();
-                    }
-                    tokens.Add(new FilepathToken(filepath));
-                } else if(c == '>') { continue; }
+                else if(c == '>') { continue; }
                 else
                 {
                     throw new FormatException("Egg is malformed -- unrecognized token " + c);
@@ -266,6 +371,19 @@
 
             _reader.Close();
             return tokens;
+        }
+
+        private void MovePastWhitespaceAndNewlines()
+        {
+            if(char.IsWhiteSpace((char)_reader.Peek()) ||
+                (char)_reader.Peek() == '\r' ||
+                (char)_reader.Peek() == '\n')
+            {
+                _reader.Read();
+                MovePastWhitespaceAndNewlines();
+            }
+
+            return;
         }
     }
 }
