@@ -12,9 +12,7 @@
 
         public EggParser(string eggData)
         {
-            Console.WriteLine("PARSER: Starting to tokenize data");
             _eggTokens = new EggEntryTokenizer().Scan(eggData).GetEnumerator();
-            Console.WriteLine("PARSER: Data tokenized!");
         }
 
         public EggParser(string filepathOrEggData, bool isFile)
@@ -44,11 +42,9 @@
             List<EggEntry> entries = new();
             Panda3DEgg egg = new Panda3DEgg();
 
-            Console.WriteLine("PARSER: Starting to parse data");
             _eggTokens.Reset();
             while(_eggTokens.MoveNext())
             {
-                Console.WriteLine("PARSER: Parsing data...");
                 var entry = ParseCurrentEntry();
                 entries.Add(entry);
                 egg.Data.Add(ParseEntry(entry));
@@ -59,7 +55,6 @@
                 EggEntry currentEntry = default;
 
                 if (_eggTokens.Current is not EntryTypeToken) return currentEntry;
-                Console.WriteLine($"PARSER: Parsing entry type <{((EntryTypeToken)_eggTokens.Current).Value}>");
                 currentEntry = new()
                 {
                     Type = ((EntryTypeToken)_eggTokens.Current).Value
@@ -379,7 +374,6 @@
 
                 if(c == '<')
                 {
-                    Console.WriteLine("TOKENIZER: Tokenizing entry type");
                     string entryType = string.Empty;
                     while((char)_reader.Read() != '>')
                     {
@@ -391,9 +385,7 @@
                         entryType += (char)_reader.Peek();
                     }
                     tokens.Add(new EntryTypeToken(entryType));
-                    Console.WriteLine($"TOKENIZER: {entryType}");
                     if (_entriesWithoutNames.Contains(entryType.ToLower())) continue;
-                    Console.WriteLine("TOKENIZER: Tokenizing entry name");
                     string entryName = string.Empty;
                     while((char)_reader.Read() != '{')
                     {
@@ -405,26 +397,22 @@
                         entryName += (char)_reader.Peek();
                     }
                     tokens.Add(new EntryNameToken(entryName));
-                    Console.WriteLine($"TOKENIZER: {entryName}");
                 } else if(c == '{') // entry content
                 {
                     _reader.Read();
                     MovePastWhitespaceAndNewlines();
-                    Console.WriteLine("TOKENIZER: Tokenizing entry content");
                     string filepath = string.Empty;
                     if((char)_reader.Peek() == '"')
                     {
                         if(filepath == string.Empty)
                         {
                             _reader.Read();
-                            Console.WriteLine("TOKENIZER: Tokenizing filepath");
                             while ((char)_reader.Peek() != '"')
                             {
                                 if ((char)_reader.Peek() == '"') break;
                                 filepath += (char)_reader.Read();
                             }
                             tokens.Add(new FilepathToken(filepath));
-                            Console.WriteLine("FILEPATH: " + filepath);
                         }
                     }
                     string toBeProcessed = string.Empty;
@@ -436,7 +424,6 @@
                     tokens.Add(new EntryContentToken(toBeProcessed));
                 } else if(c == '}')
                 {
-                    Console.WriteLine("TOKENIZER: Tokenizing entry exit");
                     tokens.Add(new ExitEntryToken());
                     _reader.Read();
                 }
