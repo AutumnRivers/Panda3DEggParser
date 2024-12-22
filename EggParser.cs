@@ -97,10 +97,17 @@
                     if(dart != default) { group.Dart = dart.Values[0]; }
                     var otype = entry.Content.FirstOrDefault(e => e.Type == "ObjectType");
                     if(otype != default) { group.ObjectType = otype.Values[0]; }
+                    var col = entry.Content.FirstOrDefault(e => e.Type == "Collide");
+                    if(col != default)
+                    {
+                        group.IsCollision = true;
+                        group.CollisionType = col.Values[0];
+                    }
                     foreach(var member in entry.Content.Where(e => e.Type != "Dart" && e.Type != "ObjectType"))
                     {
                         group.Members.Add(ParseEntry(member));
                     }
+                    group.Name = entry.Name;
                     return group;
                 case "Texture":
                     var tex = new TextureGroup(entry.Filepath);
@@ -115,6 +122,7 @@
                     {
                         pool.References.Add((Vertex)ParseEntry(v));
                     }
+                    pool.Name = entry.Name;
                     return pool;
                 case "Vertex":
                     var vertex = new Vertex(entry.Name, entry.Values[0],
@@ -149,6 +157,7 @@
                             vr.Indices[i] = indice;
                         }
                         vr.Pool = vref.Content[0].Values[0];
+                        polygon.VertexRef = vr;
                     }
                     return polygon;
                 case "Table":
@@ -199,8 +208,19 @@
                     }
                     return xfmanims;
                 case "Xfm$Anim":
-                    var xfmanim = new XfmAnimation();
-                    Console.WriteLine("WARN: Xfm$Anim isn't currently supported. Class will be empty");
+                    var xfmanim = new XfmAnimation(entry.Values);
+                    // It's assumed animations are always in xform
+#if DEBUG
+                    Console.WriteLine("Panda3DEggParser WARN: " +
+                        "<Xfm$Anim> entries are completely untested and might error out or be " +
+                        "formatted/parsed incorrectly. Please report any bugs you find, " +
+                        "along with an example file.");
+#endif
+                    var order = entry.Content.FirstOrDefault(e => e.Type == "Scalar" && e.Name == "order");
+                    if(order != default) { xfmanim.Order = order.Values[0].ToCharArray(); }
+                    var xfmfps = entry.Content.FirstOrDefault(e => e.Type == "Scalar" && e.Name == "fps");
+                    if(xfmfps != default) { xfmanim.FPS = int.Parse(xfmfps.Values[0]); }
+                    var contents = entry.Content.FirstOrDefault(e => e.Type == "Scalar" && e.Name == "contents");
                     return xfmanim;
                 case "Joint":
                     var joint = new Joint();
